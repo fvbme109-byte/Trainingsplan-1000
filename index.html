@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Training" />
+  <meta name="theme-color" content="#0a0a14" />
+  <title>Adaptiver Trainingsplan</title>
+
+  <!-- PWA Manifest inline -->
+  <script>
+    const manifestData = {
+      name: "Adaptiver Trainingsplan",
+      short_name: "Training",
+      start_url: ".",
+      display: "standalone",
+      background_color: "#0a0a14",
+      theme_color: "#0a0a14",
+      icons: [{
+        src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a0a14'/><text y='.9em' font-size='80' x='10'>🏋️</text></svg>",
+        sizes: "192x192", type: "image/svg+xml"
+      }]
+    };
+    const blob = new Blob([JSON.stringify(manifestData)], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    document.write('<link rel="manifest" href="' + manifestURL + '">');
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a14;
+      --bg2: #111122;
+      --bg3: #161627;
+      --bg4: #1e1e3f;
+      --border: #1e1e3f;
+      --border2: #2d2d5e;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --text3: #64748b;
+      --text4: #475569;
+      --accent: #6366f1;
+      --accent2: #a5b4fc;
+      --green: #22c55e;
+      --red: #ef4444;
+    }
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'Inter', 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+    button { font-family: inherit; }
+    input { font-family: inherit; }
+
+    /* -- Layout -- */
+    #app { max-width: 680px; margin: 0 auto; padding-bottom: 80px; }
+
+    /* -- Header -- */
+    .header {
+      background: linear-gradient(135deg, #0f0f2e 0%, #0a0a1a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: env(safe-area-inset-top, 16px) 16px 14px;
+      padding-top: max(env(safe-area-inset-top), 16px);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-inner { max-width: 680px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+    .header p { font-size: 11px; color: var(--accent); margin-top: 2px; }
+    .header-meta { text-align: right; font-size: 11px; color: var(--text4); line-height: 1.6; }
+
+    /* -- Content Padding -- */
+    .content { padding: 0 12px; }
+
+    /* -- Tabs -- */
+    .tabs { display: flex; gap: 8px; margin-top: 16px; }
+    .tab {
+      flex: 1; padding: 10px 4px; border-radius: 10px; border: 2px solid var(--border);
+      background: var(--bg2); color: var(--text4); font-weight: 700; font-size: 12px;
+      cursor: pointer; transition: all 0.15s; text-align: center; line-height: 1.4;
+    }
+    .tab.active { }
+    .tab-sub { font-size: 10px; font-weight: 400; opacity: 0.8; margin-top: 2px; }
+
+    /* -- Cards -- */
+    .card {
+      background: var(--bg2); border-radius: 10px;
+      padding: 12px 14px; position: relative;
+    }
+    .card-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .card-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+    .stat-label { font-size: 10px; color: var(--text4); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
+    .stat-val { font-size: 14px; font-weight: 700; color: var(--accent2); }
+    .pending-badge {
+      position: absolute; top: 8px; right: 10px;
+      font-size: 10px; color: var(--green); font-weight: 700;
+    }
+
+    /* -- Buttons -- */
+    .btn {
+      border: none; border-radius: 8px; padding: 11px 18px;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+      color: #fff; -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { opacity: 0.8; transform: scale(0.98); }
+    .btn-full { width: 100%; margin-top: 14px; }
+    .btn-sm { padding: 8px 14px; font-size: 12px; }
+
+    /* -- Forms -- */
+    .form-hint { font-size: 13px; color: var(--text2); margin-bottom: 8px; }
+    .form-card {
+      background: var(--bg3); border-radius: 10px; padding: 12px;
+    }
+    .form-card-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .form-field { display: flex; flex-direction: column; }
+    .form-input {
+      background: var(--bg4); border: 1px solid var(--border2); border-radius: 6px;
+      color: var(--text); padding: 6px 8px; font-size: 13px;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-input-wide { flex: 1; min-width: 120px; }
+    .form-actions { display: flex; gap: 8px; margin-top: 6px; }
+
+    /* -- AI Result -- */
+    .ai-box {
+      border-radius: 12px; padding: 16px; margin-top: 14px;
+    }
+    .ai-title { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+    .ai-fazit { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+    .ai-change {
+      background: #0a1a0a; border: 1px solid #166534;
+      border-radius: 8px; padding: 10px; margin-bottom: 8px;
+    }
+    .ai-change-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .ai-change-badge {
+      background: #22c55e22; color: var(--green); border: 1px solid #22c55e44;
+      border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600;
+    }
+    .ai-change-name { font-size: 12px; font-weight: 700; color: var(--text); }
+    .ai-change-diff { font-size: 12px; color: #4ade80; line-height: 1.7; }
+    .ai-change-diff s { color: var(--text2); }
+    .ai-change-grund { font-size: 11px; color: var(--text4); margin-top: 4px; }
+    .ai-milestone {
+      background: #0f1729; border: 1px solid #1e3a5f;
+      border-radius: 8px; padding: 10px; font-size: 12px; color: #93c5fd;
+    }
+    .ai-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+    /* -- Loading -- */
+    .loading-box {
+      background: #0f1729; border: 1px solid #3b82f6;
+      border-radius: 12px; padding: 16px; margin-top: 14px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .spinner {
+      width: 18px; height: 18px; border: 2px solid #3b82f6;
+      border-top-color: transparent; border-radius: 50%;
+      animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 13px; font-weight: 700; color: #93c5fd; }
+    .loading-sub { font-size: 11px; color: var(--text4); margin-top: 2px; }
+
+    /* -- Error -- */
+    .error-box {
+      background: #1a0a0a; border: 1px solid var(--red);
+      border-radius: 12px; padding: 14px; font-size: 13px; color: #fca5a5; margin-top: 14px;
+    }
+
+    /* -- History -- */
+    .toggle-btn {
+      width: 100%; background: transparent; border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text3); font-size: 12px; padding: 10px 14px;
+      cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      margin-top: 16px;
+    }
+    .history-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px; margin-top: 8px;
+    }
+    .history-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .history-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .history-date { font-size: 11px; color: var(--text4); }
+    .history-row { font-size: 11px; color: var(--text3); line-height: 1.8; }
+    .history-row span { color: var(--text2); }
+
+    /* -- Progression box -- */
+    .prog-box {
+      background: #1a1a2e; border: 1px solid var(--accent);
+      border-radius: 12px; padding: 16px; margin-top: 14px;
+    }
+    .prog-title { font-size: 13px; font-weight: 700; color: var(--accent2); margin-bottom: 8px; }
+    .prog-text { font-size: 12px; color: var(--text2); line-height: 1.7; }
+
+    /* -- Footer -- */
+    .footer { font-size: 10px; color: #1e2140; text-align: center; line-height: 1.8; margin-top: 24px; }
+
+    /* -- Install hint -- */
+    .install-hint {
+      background: #0f1a0f; border: 1px solid #166534;
+      border-radius: 10px; padding: 12px 14px; margin-top: 14px;
+      font-size: 12px; color: #86efac; line-height: 1.6; display: flex;
+      justify-content: space-between; align-items: flex-start; gap: 10px;
+    }
+    .install-hint button {
+      background: none; border: none; color: var(--text4);
+      font-size: 16px; cursor: pointer; padding: 0; flex-shrink: 0;
+    }
+
+    /* -- Divider -- */
+    .gap { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div>
+      <h1>🏋️ Adaptiver Trainingsplan</h1>
+      <p>KI-gestützte Anpassung · Full Body 3×/Woche</p>
+    </div>
+    <div class="header-meta" id="meta-display"></div>
+  </div>
+</div>
+
+<!-- Offline-Statusbar -->
+<div id="offline-bar" style="display:none;background:#7c2d12;color:#fed7aa;font-size:12px;font-weight:600;text-align:center;padding:8px 16px;position:sticky;top:56px;z-index:99;"></div>
+
+<div id="app">
+  <div class="content">
+    <div id="install-hint" class="install-hint" style="display:none">
+      📲 <span>Tippe auf <strong>Teilen</strong> → <strong>Zum Home-Bildschirm</strong> um diese App zu installieren.</span>
+      <button onclick="document.getElementById('install-hint').style.display='none'">✕</button>
+    </div>
+
+    <div id="ai-area"></div>
+    <div class="tabs" id="tabs"></div>
+    <div id="plan-area"></div>
+    <div id="progression-box"></div>
+    <div id="history-area"></div>
+    <div class="footer">KI-Empfehlungen ersetzen keine ärztliche Beratung · Bei Schmerzen immer Arzt aufsuchen</div>
+  </div>
+</div>
+
+<script>
+// ==================================================================
+// STATE
+// ==================================================================
+const DEFAULT_PLAN = {
+  meta: { name: "Friedrich", gewicht: 90, groesse: 203, erfahrung: "< 6 Monate", stand: "Juni 2025" },
+  tage: [
+    {
+      id: "A", label: "Tag A", fokus: "Brust · Rücken · Schulter", color: "#3b82f6",
+      uebungen: [
+        { id: 1, name: "Brustpresse (Maschine)", saetze: 2, wdhMin: 6, wdhMax: 8, gewicht: 55, einheit: "kg" },
+        { id: 2, name: "Incline Brustpresse", saetze: 2, wdhMin: 8, wdhMax: 10, gewicht: 35, einheit: "kg" },
+        { id: 3, name: "Latzug weit", saetze: 2, wdhMin: 6, wdhMax: 10, gewicht: 110, einheit: "kg" },
+        { id: 4, name: "Seitheben", saetze: 2, wdhMin: 10, wdhMax: 12, gewicht: 50, einheit: "kg" },
+        { id: 5, name: "Dips (assistiert)", saetze: 2, wdhMin: 8, wdhMax: 10, gewicht: 0, einheit: "kg Unterstützung" },
+      ]
+    },
+    {
+      id: "B", label: "Tag B", fokus: "Beine · Core", color: "#8b5cf6",
+      uebungen: [
+        { id: 1, name: "Squat", saetze: 2, wdhMin: 6, wdhMax: 8, gewicht: 165, einheit: "kg" },
+        { id: 2, name: "RDL", saetze: 2, wdhMin: 8, wdhMax: 12, gewicht: 24, einheit: "kg/Hantel" },
+        { id: 3, name: "Beinbeuger", saetze: 2, wdhMin: 8, wdhMax: 10, gewicht: 65, einheit: "kg" },
+        { id: 4, name: "Beinstrecker", saetze: 2, wdhMin: 8, wdhMax: 10, gewicht: 65, einheit: "kg" },
+        { id: 5, name: "Wadenheben stehend", saetze: 2, wdhMin: 10, wdhMax: 15, gewicht: 110, einheit: "kg" },
+      ]
+    },
+    {
+      id: "C", label: "Tag C", fokus: "Rücken · Bizeps · Trizeps", color: "#ec4899",
+      uebungen: [
+        { id: 1, name: "Klimmzugmaschine ⭐", saetze: 3, wdhMin: 8, wdhMax: 12, gewicht: 65, einheit: "kg Unterstützung" },
+        { id: 2, name: "Breites Rudern", saetze: 2, wdhMin: 6, wdhMax: 10, gewicht: 65, einheit: "kg" },
+        { id: 3, name: "Enges Rudern", saetze: 2, wdhMin: 8, wdhMax: 10, gewicht: 30, einheit: "kg" },
+        { id: 4, name: "Hammercurls", saetze: 2, wdhMin: 8, wdhMax: 12, gewicht: 20, einheit: "kg/Hantel" },
+        { id: 5, name: "Curl Maschine", saetze: 2, wdhMin: 8, wdhMax: 12, gewicht: 50, einheit: "kg" },
+        { id: 6, name: "Trizeps Pushdown (Kabel)", saetze: 2, wdhMin: 10, wdhMax: 12, gewicht: 25, einheit: "kg" },
+      ]
+    }
+  ]
+};
+
+const SYSTEM_PROMPT = `Du bist ein evidenzbasierter Personaltrainer und Sportmediziner.
+Du analysierst Trainingstrends ueber 3 Einheiten und gibst begruendete Vorschlaege.
+
+Athlet: Friedrich, 203 cm, 90 kg, unter 6 Monate Erfahrung.
+Ziele: Muskelaufbau, Klimmzuege, Bizeps und Trizeps.
+
+Antworte AUSSCHLIESSLICH mit validem JSON:
+{
+  "vorschlaege": [
+    {
+      "tagId": "A",
+      "uebungId": 1,
+      "uebungName": "Brustpresse",
+      "typ": "gewicht / volumen / uebung / volumen_reduzieren",
+      "konfidenz": "hoch / mittel / niedrig",
+      "aktuell": { "gewicht": 55, "saetze": 2, "wdhMin": 6, "wdhMax": 8, "name": "Brustpresse" },
+      "vorschlag": { "gewicht": 60, "saetze": 2, "wdhMin": 6, "wdhMax": 8, "name": "Brustpresse" },
+      "begruendung": "Klar formulierte Begruendung was der Trend zeigt",
+      "studie": "Konkrete Studienreferenz z.B. Schoenfeld et al. 2016",
+      "alternativen": [
+        { "beschreibung": "Alternative Option", "aenderung": { "saetze": 3 } }
+      ]
+    }
+  ],
+  "gesamtfazit": "Kurze Gesamtbewertung des Fortschritts",
+  "naechsterMeilenstein": "Naechstes konkretes Ziel"
+}
+
+Konfidenz-Regeln:
+- HOCH: Trend in allen 3 Einheiten klar und konsistent
+- MITTEL: Trend in 2 von 3 Einheiten erkennbar
+- NIEDRIG: Trend unklar, nur als Hinweis
+
+Gib KEINE Anpassung wenn Datenlage unklar ist. Lieber weniger, aber begruendete Vorschlaege.`;
+
+// -- Load/Save state ----------------------------------------------
+function loadState() {
+  try {
+    const saved = localStorage.getItem('tp_plan');
+    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_PLAN));
+  } catch(e) { return JSON.parse(JSON.stringify(DEFAULT_PLAN)); }
+}
+function loadHistory() {
+  try {
+    const saved = localStorage.getItem('tp_history');
+    return saved ? JSON.parse(saved) : [];
+  } catch(e) { return []; }
+}
+function saveState() {
+  localStorage.setItem('tp_plan', JSON.stringify(state.plan));
+  localStorage.setItem('tp_history', JSON.stringify(state.history));
+}
+
+const state = {
+  plan: loadState(),
+  history: loadHistory(),
+  activeTab: 'A',
+  logMode: false,
+  loading: false,
+  error: null,
+  aiResult: null,
+  pendingChanges: null,
+  showHistory: false,
+};
+
+// ==================================================================
+// RENDER
+// ==================================================================
+function render() {
+  renderMeta();
+  renderTabs();
+  renderAiArea();
+  renderPlanArea();
+  renderProgressionBox();
+  renderHistoryArea();
+}
+
+function renderMeta() {
+  const m = state.plan.meta;
+  document.getElementById('meta-display').innerHTML =
+    `<div>${m.name}</div><div>${m.gewicht} kg · ${m.groesse} cm</div>`;
+}
+
+function renderTabs() {
+  const el = document.getElementById('tabs');
+  el.innerHTML = state.plan.tage.map(tag => `
+    <button class="tab ${state.activeTab === tag.id ? 'active' : ''}"
+      style="${state.activeTab === tag.id ? `border-color:${tag.color};background:${tag.color}18;color:${tag.color}` : ''}"
+      onclick="switchTab('${tag.id}')">
+      ${tag.label}
+      <div class="tab-sub">${tag.fokus}</div>
+    </button>
+  `).join('');
+}
+
+function renderAiArea() {
+  const el = document.getElementById('ai-area');
+  if (state.loading) {
+    el.innerHTML = `<div class="loading-box">
+      <div class="spinner"></div>
+      <div><div class="loading-text">Coach analysiert 3 Einheiten…</div>
+      <div class="loading-sub">Trend-Analyse, Studienvergleich, Vorschlaege werden erstellt</div></div>
+    </div>`;
+    return;
+  }
+  if (state.error) {
+    el.innerHTML = `<div class="error-box">⚠️ ${state.error}</div>`;
+    return;
+  }
+  if (!state.aiResult) { el.innerHTML = ''; return; }
+
+  const r = state.aiResult;
+
+  // Warte-Modus
+  if (r.warten) {
+    el.innerHTML = `<div style="background:#0f1a2e;border:1px solid #1e3a5f;border-radius:12px;padding:16px;margin-top:14px">
+      <div style="font-size:14px;font-weight:800;color:#93c5fd;margin-bottom:8px">✓ Einheit gespeichert</div>
+      <div style="font-size:13px;color:#64748b;line-height:1.6">${r.gesamtfazit}</div>
+    </div>`;
+    return;
+  }
+
+  // Konfidenz-Farben
+  const konfidenzColor = { hoch: '#22c55e', mittel: '#f59e0b', niedrig: '#6366f1' };
+  const konfidenzLabel = { hoch: '● Hohe Konfidenz', mittel: '● Mittlere Konfidenz', niedrig: '● Hinweis' };
+  const typLabel = { gewicht: '⬆ Gewicht', volumen: '+ Volumen', uebung: '↔ Übung tauschen', volumen_reduzieren: '⬇ Volumen' };
+
+  const vorschlaege = r.vorschlaege || [];
+  const offen = vorschlaege.filter(v => !v._status);
+  const angenommen = vorschlaege.filter(v => v._status && v._status !== 'abgelehnt');
+  const abgelehnt = vorschlaege.filter(v => v._status === 'abgelehnt');
+
+  let vorschlaegeHTML = '';
+  vorschlaege.forEach((v, i) => {
+    const kColor = konfidenzColor[v.konfidenz] || '#6366f1';
+    const status = v._status;
+    let statusBanner = '';
+    if (status === 'angenommen') statusBanner = `<div style="background:#0a1a0a;border:1px solid #22c55e;border-radius:6px;padding:6px 10px;font-size:11px;color:#22c55e;margin-bottom:8px">✓ Angenommen – Plan wurde aktualisiert</div>`;
+    else if (status && status.startsWith('alternativ')) statusBanner = `<div style="background:#0a1a0a;border:1px solid #22c55e;border-radius:6px;padding:6px 10px;font-size:11px;color:#22c55e;margin-bottom:8px">✓ Alternative angenommen – Plan aktualisiert</div>`;
+    else if (status === 'abgelehnt') statusBanner = `<div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:6px;padding:6px 10px;font-size:11px;color:#ef4444;margin-bottom:8px">✗ Abgelehnt</div>`;
+
+    // Aenderungs-Diff
+    let diffHTML = '';
+    if (v.aktuell && v.vorschlag) {
+      if (v.vorschlag.gewicht !== undefined && v.vorschlag.gewicht !== v.aktuell.gewicht)
+        diffHTML += `<div>Gewicht: <s style="color:#64748b">${v.aktuell.gewicht}</s> → <strong style="color:#a5b4fc">${v.vorschlag.gewicht}</strong></div>`;
+      if (v.vorschlag.saetze !== undefined && v.vorschlag.saetze !== v.aktuell.saetze)
+        diffHTML += `<div>Saetze: <s style="color:#64748b">${v.aktuell.saetze}</s> → <strong style="color:#a5b4fc">${v.vorschlag.saetze}</strong></div>`;
+      if (v.vorschlag.wdhMin !== undefined && (v.vorschlag.wdhMin !== v.aktuell.wdhMin || v.vorschlag.wdhMax !== v.aktuell.wdhMax))
+        diffHTML += `<div>Wdh: <s style="color:#64748b">${v.aktuell.wdhMin}–${v.aktuell.wdhMax}</s> → <strong style="color:#a5b4fc">${v.vorschlag.wdhMin}–${v.vorschlag.wdhMax}</strong></div>`;
+      if (v.vorschlag.name && v.vorschlag.name !== v.aktuell.name)
+        diffHTML += `<div>Uebung: <s style="color:#64748b">${v.aktuell.name}</s> → <strong style="color:#fbbf24">${v.vorschlag.name}</strong></div>`;
+    }
+
+    // Alternativen
+    let altHTML = '';
+    if (v.alternativen && v.alternativen.length > 0 && !status) {
+      altHTML = `<div style="margin-top:8px;border-top:1px solid #1e2140;padding-top:8px">
+        <div style="font-size:10px;color:#475569;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.8px">Alternativen</div>
+        ${v.alternativen.map((alt, ai) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:11px;color:#94a3b8">${alt.beschreibung}</span>
+            <button class="btn btn-sm" style="background:#334155;font-size:10px;padding:4px 10px" onclick="acceptVorschlag(${i}, ${ai})">Nehmen</button>
+          </div>
+        `).join('')}
+      </div>`;
+    }
+
+    // Aktions-Buttons
+    let actHTML = '';
+    if (!status) {
+      actHTML = `<div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-sm" style="background:#22c55e" onclick="acceptVorschlag(${i})">✓ Annehmen</button>
+        <button class="btn btn-sm" style="background:#7f1d1d" onclick="rejectVorschlag(${i})">✗ Ablehnen</button>
+      </div>`;
+    }
+
+    vorschlaegeHTML += `<div style="background:#111122;border:1px solid ${status === 'abgelehnt' ? '#2d1a1a' : status ? '#166534' : '#1e2140'};border-radius:10px;padding:14px;margin-bottom:8px;opacity:${status === 'abgelehnt' ? '0.6' : '1'}">
+      ${statusBanner}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="background:${kColor}22;color:${kColor};border:1px solid ${kColor}44;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700">${konfidenzLabel[v.konfidenz] || v.konfidenz}</span>
+        <span style="background:#1e1e3f;color:#a5b4fc;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700">${typLabel[v.typ] || v.typ}</span>
+        <span style="font-size:13px;font-weight:700;color:#f1f5f9">${v.uebungName}</span>
+      </div>
+      <div style="font-size:12px;color:#a5b4fc;margin-bottom:8px;line-height:1.6">${diffHTML}</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;margin-bottom:6px">${v.begruendung}</div>
+      <div style="font-size:11px;color:#475569;font-style:italic">📚 ${v.studie || ''}</div>
+      ${altHTML}
+      ${actHTML}
+    </div>`;
+  });
+
+  // Sammle-Aktionen oben
+  const sammelHTML = offen.length > 1 ? `<div style="display:flex;gap:8px;margin-bottom:12px">
+    <button class="btn btn-sm" style="background:#22c55e" onclick="acceptAll()">✓ Alle annehmen</button>
+    <button class="btn btn-sm" style="background:#334155" onclick="dismissAi()">Alle verwerfen</button>
+  </div>` : '';
+
+  el.innerHTML = `<div style="margin-top:14px">
+    <div style="font-size:15px;font-weight:800;color:#e2e8f0;margin-bottom:4px">🤖 Coach-Analyse</div>
+    <div style="font-size:12px;color:#64748b;line-height:1.6;margin-bottom:12px">${r.gesamtfazit || ''}</div>
+    ${sammelHTML}
+    ${vorschlaegeHTML}
+    ${vorschlaege.length === 0 ? '<div style="font-size:13px;color:#475569;padding:12px 0">Kein Anpassungsbedarf erkennbar – weiter so!</div>' : ''}
+    ${r.naechsterMeilenstein ? `<div style="background:#0f1729;border:1px solid #1e3a5f;border-radius:8px;padding:10px;font-size:12px;color:#93c5fd;margin-top:4px">🎯 Naechster Meilenstein: ${r.naechsterMeilenstein}</div>` : ''}
+  </div>`;
+}
+
+
+function renderPlanArea() {
+  const tag = state.plan.tage.find(t => t.id === state.activeTab);
+  if (!tag) return;
+  const el = document.getElementById('plan-area');
+
+  if (state.logMode) {
+    // -- Log Form --
+    const rows = tag.uebungen.map(u => `
+      <div class="form-card" style="border:1px solid ${tag.color}33">
+        <div class="form-card-name">${u.name}</div>
+        <div class="form-row">
+          <div class="form-field">
+            <span class="stat-label">Gewicht</span>
+            <input class="form-input" style="width:70px" type="number" id="f_${u.id}_gew" value="${u.gewicht}" />
+          </div>
+          <div class="form-field">
+            <span class="stat-label">Wdh (letzter Satz)</span>
+            <input class="form-input" style="width:70px" type="number" id="f_${u.id}_wdh" value="${u.wdhMax}" />
+          </div>
+          <div class="form-field">
+            <span class="stat-label">Sätze geschafft</span>
+            <input class="form-input" style="width:70px" type="number" id="f_${u.id}_sae" value="${u.saetze}" />
+          </div>
+          <div class="form-field form-input-wide">
+            <span class="stat-label">Notiz</span>
+            <input class="form-input" style="width:100%" type="text" id="f_${u.id}_not" placeholder="z.B. leicht gefühlt…" />
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    el.innerHTML = `
+      <div style="margin-top:14px">
+        <div class="form-hint">Trage deine heutigen Werte ein – die KI analysiert danach deinen Fortschritt.</div>
+        <div class="gap">${rows}</div>
+        <div class="form-actions" style="margin-top:10px">
+          <button class="btn" style="background:${tag.color}" onclick="saveLog()">✓ Einheit speichern & KI analysieren</button>
+          <button class="btn" style="background:#334155" onclick="cancelLog()">Abbrechen</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // -- Plan View --
+  const cards = tag.uebungen.map(u => {
+    const hasPending = state.pendingChanges?.find(c => c.tagId === state.activeTab && c.uebungId === u.id);
+    return `<div class="card" style="border:1px solid ${hasPending ? '#22c55e' : tag.color + '33'}">
+      ${hasPending ? `<div class="pending-badge">KI-Update ausstehend ↑</div>` : ''}
+      <div class="card-name">${u.name}</div>
+      <div class="card-stats">
+        <div><div class="stat-label">Sätze</div><div class="stat-val">${u.saetze}</div></div>
+        <div><div class="stat-label">Wiederholungen</div><div class="stat-val">${u.wdhMin}–${u.wdhMax}</div></div>
+        <div><div class="stat-label">Gewicht</div><div class="stat-val">${u.gewicht} ${u.einheit}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="margin-top:14px">
+      <div class="gap">${cards}</div>
+      <button class="btn btn-full" style="background:${tag.color}" onclick="startLog()">
+        + Einheit eintragen und KI analysieren lassen
+      </button>
+    </div>`;
+}
+
+function renderProgressionBox() {
+  const el = document.getElementById('progression-box');
+  if (state.logMode) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="prog-box">
+    <div class="prog-title">⭐ Klimmzug-Progression</div>
+    <div class="prog-text">
+      Tag C: <strong>3 Sätze</strong> Klimmzugmaschine.<br>
+      Wenn <strong>3×12 sauber</strong> → Unterstützung um <strong>2,5–5 kg reduzieren</strong>.<br>
+      Ziel freie Klimmzüge in <strong style="color:#6366f1">3–5 Monaten</strong> realistisch.
+    </div>
+  </div>`;
+}
+
+function renderHistoryArea() {
+  const el = document.getElementById('history-area');
+  const count = state.history.length;
+
+  let histHTML = '';
+  if (state.showHistory) {
+    if (count === 0) {
+      histHTML = `<div style="font-size:12px;color:var(--text4);text-align:center;padding:20px">Noch keine Einheiten eingetragen.</div>`;
+    } else {
+      histHTML = [...state.history].reverse().map(h => `
+        <div class="history-card">
+          <div class="history-header">
+            <span class="history-title">${h.tagLabel} – ${h.fokus}</span>
+            <span class="history-date">${h.datum}</span>
+          </div>
+          ${h.eintraege.map(e => `
+            <div class="history-row">${e.name}: <span>${e.gewicht} kg × ${e.wdh} Wdh × ${e.saetze} Sätze</span>${e.notiz ? ` · <span style="color:var(--text4)">${e.notiz}</span>` : ''}</div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+  }
+
+  el.innerHTML = `
+    <button class="toggle-btn" onclick="toggleHistory()">
+      <span>📋 Trainingshistorie (${count} Einheiten)</span>
+      <span>${state.showHistory ? '▲' : '▼'}</span>
+    </button>
+    ${histHTML}`;
+}
+
+// ==================================================================
+// ACTIONS
+// ==================================================================
+function switchTab(id) {
+  state.activeTab = id;
+  state.logMode = false;
+  renderTabs();
+  renderPlanArea();
+  renderProgressionBox();
+}
+
+function startLog() {
+  state.logMode = true;
+  renderPlanArea();
+  renderProgressionBox();
+}
+
+function cancelLog() {
+  state.logMode = false;
+  renderPlanArea();
+  renderProgressionBox();
+}
+
+function getTagHistory(tagId) {
+  return state.history.filter(h => h.tagId === tagId);
+}
+
+function saveLog() {
+  const tag = state.plan.tage.find(t => t.id === state.activeTab);
+  const eintraege = tag.uebungen.map(u => ({
+    id: u.id,
+    name: u.name,
+    gewicht: parseFloat(document.getElementById(`f_${u.id}_gew`)?.value) || 0,
+    wdh: parseFloat(document.getElementById(`f_${u.id}_wdh`)?.value) || 0,
+    saetze: parseFloat(document.getElementById(`f_${u.id}_sae`)?.value) || 0,
+    notiz: document.getElementById(`f_${u.id}_not`)?.value || '',
+  }));
+
+  state.history.push({
+    datum: new Date().toLocaleDateString('de-DE'),
+    tagId: state.activeTab,
+    tagLabel: tag.label,
+    fokus: tag.fokus,
+    eintraege,
+  });
+  saveState();
+
+  state.logMode = false;
+
+  // Analyse nur alle 3 Einheiten desselben Tags (wissenschaftlich fundiert)
+  const tagHistory = getTagHistory(state.activeTab);
+  const shouldAnalyze = tagHistory.length >= 3 && tagHistory.length % 3 === 0;
+
+  if (shouldAnalyze) {
+    const last3 = tagHistory.slice(-3);
+    analyzeWithAI(state.activeTab, eintraege, last3);
+  } else {
+    const fehlen = 3 - (tagHistory.length % 3);
+    state.aiResult = {
+      warten: true,
+      gesamtfazit: `Einheit gespeichert. Noch ${fehlen} Einheit${fehlen === 1 ? '' : 'en'} bis zur KI-Analyse fuer ${tag.label}. Die KI vergleicht immer 3 Einheiten, damit Anpassungen wirklich durch einen Trend begruendet sind.`,
+    };
+    renderAiArea();
+  }
+
+  renderPlanArea();
+  renderProgressionBox();
+  renderHistoryArea();
+}
+
+// Einzelnen Vorschlag annehmen
+function acceptVorschlag(idx, useAlternative) {
+  if (!state.aiResult || !state.aiResult.vorschlaege) return;
+  const v = state.aiResult.vorschlaege[idx];
+  if (!v) return;
+
+  const aenderung = useAlternative !== undefined
+    ? { ...v.vorschlag, ...v.alternativen[useAlternative].aenderung }
+    : v.vorschlag;
+
+  state.plan.tage = state.plan.tage.map(tag => ({
+    ...tag,
+    uebungen: tag.uebungen.map(u => {
+      if (tag.id === v.tagId && u.id === v.uebungId) {
+        return { ...u, ...aenderung };
+      }
+      return u;
+    })
+  }));
+
+  // Vorschlag als angenommen markieren
+  state.aiResult.vorschlaege[idx]._status = useAlternative !== undefined
+    ? 'alternativ_' + useAlternative : 'angenommen';
+  saveState();
+  render();
+}
+
+// Einzelnen Vorschlag ablehnen
+function rejectVorschlag(idx) {
+  if (!state.aiResult || !state.aiResult.vorschlaege) return;
+  state.aiResult.vorschlaege[idx]._status = 'abgelehnt';
+  render();
+}
+
+// Alle ausstehenden Vorschlaege annehmen
+function acceptAll() {
+  if (!state.aiResult || !state.aiResult.vorschlaege) return;
+  state.aiResult.vorschlaege.forEach((v, i) => {
+    if (!v._status) acceptVorschlag(i);
+  });
+}
+
+function dismissAi() {
+  state.aiResult = null;
+  state.pendingChanges = null;
+  renderAiArea();
+  renderPlanArea();
+}
+
+function toggleHistory() {
+  state.showHistory = !state.showHistory;
+  renderHistoryArea();
+}
+
+// ==================================================================
+// AI CALL
+// ==================================================================
+async function analyzeWithAI(tagId, eintraege, last3Sessions) {
+  state.loading = true;
+  state.error = null;
+  state.aiResult = null;
+  renderAiArea();
+
+  const tag = state.plan.tage.find(t => t.id === tagId);
+
+  // Trend-Analyse über alle 3 Einheiten pro Übung aufbauen
+  const trendText = tag.uebungen.map(u => {
+    const verlauf = last3Sessions.map((s, i) => {
+      const e = s.eintraege.find(x => x.id === u.id);
+      return e ? `Einheit ${i+1} (${s.datum}): ${e.gewicht}kg x ${e.wdh} Wdh x ${e.saetze} Saetze${e.notiz ? ' – ' + e.notiz : ''}` : null;
+    }).filter(Boolean);
+    return u.name + ' (Ziel: ' + u.wdhMin + '-' + u.wdhMax + ' Wdh):\n  ' + verlauf.join('\n  ');
+  }).join('\n\n');
+
+  const userMessage = `
+Analysiere den TREND ueber 3 Einheiten und passe den Plan wissenschaftlich fundiert an.
+
+WICHTIG: Passe NUR an wenn der Trend KLAR und KONSISTENT ist (mind. 2 von 3 Einheiten zeigen dasselbe Muster).
+Eine einzelne gute oder schlechte Einheit rechtfertigt KEINE Anpassung.
+
+AKTUELLER PLAN:
+${JSON.stringify(state.plan.tage)}
+
+TREND-ANALYSE (${tag.label} – letzte 3 Einheiten):
+${trendText}
+
+Beurteilungskriterien:
+- Gewicht erhoehen: nur wenn obere Wdh-Grenze in mind. 2/3 Einheiten erreicht oder ueberschritten
+- Saetze erhoehen: nur wenn alle Saetze in 2/3 Einheiten sauber abgeschlossen
+- Klimmzugmaschine: 3x12 in 2/3 Einheiten? → Unterstuetzung -5kg
+- Uebungsprogression: nur wenn Plateau ueber alle 3 Einheiten erkennbar
+- Volumen reduzieren: wenn Leistung ueber 3 Einheiten abnimmt (Uebertraining-Signal)
+
+Antworte NUR mit JSON.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userMessage }],
+      })
+    });
+    const data = await res.json();
+    const raw = data.content.map(i => i.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    // Normalize: support both old 'anpassungen' and new 'vorschlaege' format
+    if (parsed.anpassungen && !parsed.vorschlaege) {
+      parsed.vorschlaege = parsed.anpassungen.map(a => ({
+        tagId: a.tagId, uebungId: a.uebungId,
+        uebungName: a.aenderungen?.name || '',
+        typ: 'gewicht', konfidenz: 'mittel',
+        aktuell: {}, vorschlag: a.aenderungen,
+        begruendung: a.begruendung || '', studie: '', alternativen: []
+      }));
+    }
+    state.aiResult = parsed;
+    state.pendingChanges = null; // no longer used globally
+  } catch(err) {
+    state.error = 'KI-Analyse fehlgeschlagen. Internetverbindung prüfen und erneut versuchen.';
+    console.error(err);
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+// ==================================================================
+// SERVICE WORKER – externe sw.js Datei (GitHub Pages konform)
+// ==================================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => {
+        window.addEventListener('online',  () => updateOnlineStatus(true));
+        window.addEventListener('offline', () => updateOnlineStatus(false));
+      })
+      .catch(err => console.warn('SW nicht verfügbar (z.B. in iframe):', err));
+  });
+}
+function updateOnlineStatus(online) {
+  const bar = document.getElementById('offline-bar');
+  if (!bar) return;
+  if (online) {
+    bar.style.display = 'none';
+  } else {
+    bar.style.display = 'block';
+    bar.textContent = '📵 Offline – Plan & History funktionieren, KI-Analyse nicht verfügbar';
+  }
+}
+
+// Offline-Bar initial prüfen
+if (!navigator.onLine) updateOnlineStatus(false);
+
+// ==================================================================
+// INIT
+// ==================================================================
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isInStandalone = window.navigator.standalone === true;
+const hintDismissed = localStorage.getItem('tp_hint_dismissed');
+if (isIos && !isInStandalone && !hintDismissed) {
+  document.getElementById('install-hint').style.display = 'flex';
+}
+document.querySelector('#install-hint button')?.addEventListener('click', () => {
+  localStorage.setItem('tp_hint_dismissed', '1');
+});
+
+render();
+</script>
+</body>
+</html>
